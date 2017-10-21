@@ -1,0 +1,5 @@
+*.file
+flume_file_channel/
+*.pyc
+*.log
+*.log.?
