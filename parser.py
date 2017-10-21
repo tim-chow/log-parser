@@ -32,6 +32,19 @@ mysql_args["connect_timeout"] = 2
 __MYSQL_CONN = None
 __MYSQL_CURSOR = None
 
+def time_used(f):
+    def _inner(*a, **kw):
+        start = time.time()
+        try:
+            result = f(*a, **kw)
+        finally:
+            used_time = time.time() - start
+            if used_time >= 0.1:
+                LOGGER.debug("func: %s uses time: %.3f ms" %
+                    (f.func_name, used_time))
+        return result
+    return _inner
+
 def retry(f):
     def __inner(*a, **kw):
         with LOCK:
@@ -111,6 +124,7 @@ def decode(line):
         return unquote_plus(line)
     return line.decode("unicode_escape")
 
+@time_used
 def normalize_one_line(one_line):
     line = special_deal(one_line)
     if line is None:
@@ -162,8 +176,11 @@ def get_pc_wap_page_info(key, site_id):
             if re.search(rule["match_value"], key):
                 return rule
 
-# js_sdk 没有imei
 def js_sdk_parser(one_line):
+    return _js_sdk_parser(one_line)
+
+@time_used
+def _js_sdk_parser(one_line):
     line, request_body = normalize_one_line(one_line)
     if line is None:
         return None
@@ -195,24 +212,8 @@ def js_sdk_parser(one_line):
     result["url"] = request_body["pi"]["dl"]
     result["info"] = get_query(result["url"])
     url = urlparse(result["url"])
-    protocol = url.scheme
-    result["url_protocol"] = protocol
-    result["url_noparam"] = protocol + "://" + url.netloc + url.path
-    key = url.netloc + url.path
-    matched_rule = get_pc_wap_page_info(key, result["site_id"])
-    if matched_rule:
-        result["page_type"] = matched_rule["page_type"]
-        result["page_site"] = matched_rule["page_site"]
-        result["page_channel"] = matched_rule["page_area"]
 
-    if result["url_ref"]:
-        ref_url = urlparse(result["url_ref"])
-        key = ref_url.netloc + ref_url.path
-        matched_rule = get_pc_wap_page_info(key, result["site_id"])
-        if matched_rule:
-            result["pre_page_type"] = matched_rule["page_type"]
-            result["pre_page_site"] = matched_rule["page_site"]
-            result["pre_page_channel"] = matched_rule["page_area"]
+    get_page_info(url, result)
 
     result["log_type"] = request_body.get("t")
     result["page_id"] = request_body.get("pi", {}).get("pid")
@@ -242,8 +243,30 @@ def js_sdk_parser(one_line):
     session_time = request_body.get("pi", {}).get("st")
     if session_time and session_time != '-':
         result["session_time"] = long(session_time)
+
     return json.dumps(result, encoding="utf8",
             ensure_ascii=False) + "\n"
+
+@time_used
+def get_page_info(url, result):
+    protocol = url.scheme
+    result["url_protocol"] = protocol
+    result["url_noparam"] = protocol + "://" + url.netloc + url.path
+    key = url.netloc + url.path
+    matched_rule = get_pc_wap_page_info(key, result["site_id"])
+    if matched_rule:
+        result["page_type"] = matched_rule["page_type"]
+        result["page_site"] = matched_rule["page_site"]
+        result["page_channel"] = matched_rule["page_area"]
+
+    if result["url_ref"]:
+        ref_url = urlparse(result["url_ref"])
+        key = ref_url.netloc + ref_url.path
+        matched_rule = get_pc_wap_page_info(key, result["site_id"])
+        if matched_rule:
+            result["pre_page_type"] = matched_rule["page_type"]
+            result["pre_page_site"] = matched_rule["page_site"]
+            result["pre_page_channel"] = matched_rule["page_area"]
 
 def replacement(m):
     request_body = m.group("request_body")
