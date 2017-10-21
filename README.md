@@ -1,3 +1,9 @@
+### Flume快速入门  
+
+[请移步蒂米的博客](http://timd.cn/2017/09/20/flume/)  
+
+---
+
 ### 架构  
 
 <img alt="架构图" src="http://timd.cn/content/images/pictures/log-parse.png"></img>  
