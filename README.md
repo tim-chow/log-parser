@@ -12,7 +12,7 @@
 
 ### 架构  
 
-<img alt="架构图" src="http://timd.cn/content/images/pictures/log-parse.png"></img>  
+<img alt="架构图" src="http://images.timd.cn/default/log-parse.png"></img>  
 
 ---
 
